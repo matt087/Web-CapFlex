@@ -22,12 +22,6 @@ Arquitectura de dos microservicios FastAPI orquestados con Docker Compose.
 docker-compose up --build
 ```
 
-Sin GPU (solo CPU):
-```bash
-# Elimina el bloque 'deploy' en docker-compose.yml antes de ejecutar
-docker-compose up --build
-```
-
 ---
 
 ## Flujos de uso
