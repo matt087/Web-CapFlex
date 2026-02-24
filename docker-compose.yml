@@ -12,12 +12,10 @@ services:
       - "8001:8001"
     volumes:
       - ./shared_data:/shared_data
-      - ~/.cache/huggingface:/root/.cache/huggingface
     environment:
       - SHARED_DIR=/shared_data
       - CLIP_MODEL=openai/clip-vit-base-patch32
       - CLIP_BATCH_SIZE=64
-      - HF_HUB_OFFLINE=1
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------
