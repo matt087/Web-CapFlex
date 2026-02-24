@@ -6,13 +6,13 @@ const CLUSTER_COLORS = [
   "#FF7A3D", "#00E0FF", "#FF3DE8", "#7FFF00", "#FF9AAA",
 ];
 
-const BG     = "#080C14";
-const BORDER = "#1A2640";
-const ACCENT = "#00FFB2";
-const MUTED  = "#4A6080";
+const BG     = "#F4F7FB";
+const BORDER = "#D6E0EE";
+const ACCENT = "#0066FF";
+const MUTED  = "#8FA3BF";
 
-const CLUSTERING_API = "/api/clustering";
-const EMBEDDING_API  = "/api/embedding";
+const CLUSTERING_API = "http://localhost:8002";
+const EMBEDDING_API  = "http://localhost:8001";
 
 async function apiPost(url, formData) {
   const res = await fetch(url, { method: "POST", body: formData });
@@ -229,7 +229,7 @@ export default function CapFlexUI() {
     points.forEach((pt) => {
       const { cx, cy } = toCanvas(pt.x, pt.y);
       const isFiltered = clusterFilter !== null && pt.cluster !== clusterFilter;
-      const color = (clustered && pt.cluster !== null) ? CLUSTER_COLORS[pt.cluster % CLUSTER_COLORS.length] : "#3A4A60";
+      const color = (clustered && pt.cluster !== null) ? CLUSTER_COLORS[pt.cluster % CLUSTER_COLORS.length] : "#CBD5E1";
       ctx.globalAlpha = isFiltered ? 0.12 : 0.9;
       ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI * 2); ctx.fillStyle = color; ctx.fill();
       if (!isFiltered) { ctx.strokeStyle = clustered ? color + "44" : "#1A2640"; ctx.lineWidth = 1; ctx.stroke(); }
