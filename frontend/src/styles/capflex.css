@@ -326,10 +326,10 @@ input[type="number"]:focus {
   border: none;
   border-radius: var(--radius);
   color: #fff;
-  font-family: var(--sans);
-  font-weight: 800;
-  font-size: 14px;
-  letter-spacing: 0.5px;
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 1px;
   cursor: pointer;
   transition: all 0.15s;
   position: relative;
@@ -338,6 +338,7 @@ input[type="number"]:focus {
   align-items: center;
   justify-content: center;
   gap: 8px;
+  outline: none;
 }
 
 .run-btn:hover:not(:disabled) {
@@ -816,4 +817,21 @@ tbody tr:hover {
   color: var(--accent);
   margin-bottom: 4px;
   font-size: 12px;
+}
+
+button:focus,
+button:focus-visible,
+input:focus,
+input:focus-visible {
+  outline: none;
+}
+
+.input-type-btn:focus,
+.input-type-btn:focus-visible {
+  outline: none;
+}
+
+.tab:focus,
+.tab:focus-visible {
+  outline: none;
 }
