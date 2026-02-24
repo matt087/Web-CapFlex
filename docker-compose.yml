@@ -5,17 +5,19 @@ services:
   # ---------------------------------------------------------------------------
   embedding-svc:
     build:
-      context: ./embedding-svc
+      context: ./backend/embedding-svc
       dockerfile: Dockerfile
     container_name: capflex_embedding
     ports:
       - "8001:8001"
     volumes:
       - ./shared_data:/shared_data
+      - ~/.cache/huggingface:/root/.cache/huggingface
     environment:
       - SHARED_DIR=/shared_data
       - CLIP_MODEL=openai/clip-vit-base-patch32
       - CLIP_BATCH_SIZE=64
+      - HF_HUB_OFFLINE=1
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------
@@ -23,7 +25,7 @@ services:
   # ---------------------------------------------------------------------------
   clustering-svc:
     build:
-      context: ./clustering-svc
+      context: ./backend/clustering-svc
       dockerfile: Dockerfile
     container_name: capflex_clustering
     ports:
@@ -32,6 +34,18 @@ services:
       - ./shared_data:/shared_data
     environment:
       - SHARED_DIR=/shared_data
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: capflex_frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - embedding-svc
+      - clustering-svc
     restart: unless-stopped
 
 volumes:

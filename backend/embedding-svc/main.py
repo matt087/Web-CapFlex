@@ -75,6 +75,15 @@ The output CSV can be passed directly to the **Clustering Service** using the `e
     version="1.0.0",
 )
 
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 jobs: dict[str, dict] = {}
 embedder: Optional[CLIPEmbedder] = None
 executor = ThreadPoolExecutor(max_workers=2)

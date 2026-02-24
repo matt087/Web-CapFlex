@@ -8,9 +8,12 @@ from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 import pandas as pd
 import aiofiles
+import math
 
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.responses import FileResponse
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from capflex import (
@@ -136,6 +139,15 @@ trade-off is selected via the **Knee Point** method.
     version="1.0.0",
 )
 
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 jobs: dict[str, dict] = {}
 executor = ThreadPoolExecutor(max_workers=4)
 
@@ -172,6 +184,23 @@ def _load_input(csv_path, input_type, label_column, embedding_prefix):
 
     return input_data, true_labels
 
+def sanitize(obj):
+    """Recursively convert NumPy types and NaN/Inf to JSON-safe Python types."""
+    if isinstance(obj, dict):
+        return {k: sanitize(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [sanitize(i) for i in obj]
+    if isinstance(obj, np.integer):
+        return int(obj)
+    if isinstance(obj, np.floating):
+        if np.isnan(obj) or np.isinf(obj):
+            return None
+        return float(obj)
+    if isinstance(obj, np.ndarray):
+        return sanitize(obj.tolist())
+    if isinstance(obj, float) and (math.isnan(obj) or math.isinf(obj)):
+        return None
+    return obj
 
 def _run_clustering(job_id, csv_path, input_type, label_column,
                     embedding_prefix, target_cardinality, delta, max_iter):
@@ -447,6 +476,7 @@ def get_status(job_id: str):
     return {"job_id": job_id, "status": job["status"], "error": job.get("error")}
 
 
+
 @app.get(
     "/clustering/results/{job_id}",
     response_model=ClusteringResultsResponse,
@@ -484,7 +514,8 @@ def get_results(job_id: str):
         raise HTTPException(500, f"Job failed: {job['error']}")
     if job["status"] != "done":
         raise HTTPException(400, f"Job not ready. Current status: '{job['status']}'.")
-    return {"job_id": job_id, **job["results"]}
+    payload = sanitize({"job_id": job_id, **job["results"]})
+    return JSONResponse(content=payload)
 
 
 @app.get(
