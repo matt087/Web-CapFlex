@@ -11,8 +11,8 @@ const BORDER = "#D6E0EE";
 const ACCENT = "#0066FF";
 const MUTED  = "#8FA3BF";
 
-const CLUSTERING_API = "http://localhost:8002";
-const EMBEDDING_API  = "http://localhost:8001";
+const CLUSTERING_API = "/api/clustering";
+const EMBEDDING_API  = "/api/embedding";
 
 async function apiPost(url, formData) {
   const res = await fetch(url, { method: "POST", body: formData });
@@ -113,12 +113,35 @@ export default function CapFlexUI() {
 
   const canvasRef = useRef(null);
 
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
     setFile(f); setFileName(f.name); setEmbJobId(null);
     setStatusMsg(`File selected: ${f.name} — configure parameters and click Run`);
-    setStatus("idle"); setClustered(false); setPoints([]); setPareto([]); setKneeMetrics(null); setClusterFilter(null);
+    setStatus("idle"); setClustered(false); setPareto([]); setKneeMetrics(null); setClusterFilter(null);
+
+    // Pre-cargar CSV para mostrar puntos grises antes del clustering
+    try {
+      const text = await f.text();
+      const lines = text.trim().split("\n");
+      const headers = lines[0].split(",").map((h) => h.trim());
+      const rows = lines.slice(1).map((line) => {
+        const vals = line.split(",");
+        const obj = {};
+        headers.forEach((h, i) => { const v = vals[i]?.trim(); obj[h] = isNaN(v) || v === "" ? v : +v; });
+        return obj;
+      });
+      const numericCols = headers.filter((h) => typeof rows[0][h] === "number");
+      const xKey = numericCols[0];
+      const yKey = numericCols[1] || numericCols[0];
+      const preview = rows.map((row, i) => ({
+        id: i, x: row[xKey] ?? 0, y: row[yKey] ?? 0,
+        cluster: null, features: Object.fromEntries(numericCols.slice(0, 6).map((k) => [k, row[k]])),
+      }));
+      setPoints(preview);
+    } catch (_) {
+      setPoints([]);
+    }
   };
 
   const handleRun = async () => {
@@ -246,6 +269,21 @@ export default function CapFlexUI() {
   }, [drawCanvas]);
 
   useEffect(() => { drawCanvas(); }, [drawCanvas]);
+
+  // Redibujar al volver al tab PCA — el canvas se vacía al desmontarse
+  useEffect(() => {
+    if (activeTab === "pca") {
+      const t = setTimeout(() => {
+        const canvas = canvasRef.current;
+        if (canvas) {
+          canvas.width  = canvas.offsetWidth;
+          canvas.height = canvas.offsetHeight;
+          drawCanvas();
+        }
+      }, 50);
+      return () => clearTimeout(t);
+    }
+  }, [activeTab, drawCanvas]);
 
   const handleCanvasMouseMove = (e) => {
     if (!points.length || !clustered) return;
