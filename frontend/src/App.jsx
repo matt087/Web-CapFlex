@@ -115,13 +115,10 @@ export default function CapFlexUI() {
 
   const canvasRef = useRef(null);
 
-  // Flag para saber si el cambio de modo viene de "Use in Clustering"
   const [comingFromEmbeddings, setComingFromEmbeddings] = useState(false);
 
-  // Limpiar todo al cambiar de modo
   useEffect(() => {
     if (comingFromEmbeddings) {
-      // Viniendo de embeddings: solo limpiar el panel de embeddings, conservar embJobId
       setComingFromEmbeddings(false);
       setImgFiles([]); setEmbStatus("idle"); setEmbStatusMsg("No images selected");
       setEmbProgress(0); setEmbResultJobId(null);
