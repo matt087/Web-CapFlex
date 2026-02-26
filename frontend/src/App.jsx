@@ -727,14 +727,17 @@ export default function CapFlexUI() {
                             {embStatus === "done" && (
                               <div style={{
                                 position: "absolute", inset: 0,
-                                background: "rgba(0,196,140,0.15)",
-                                display: "flex", alignItems: "flex-end", justifyContent: "flex-end",
+                                background: "rgba(0,196,140,0.10)",
+                                display: "flex", alignItems: "flex-start", justifyContent: "flex-end",
                                 padding: 6,
+                                pointerEvents: "none",
                               }}>
                                 <div style={{
                                   background: "#00C48C", color: "#fff",
-                                  borderRadius: 4, padding: "2px 6px",
-                                  fontFamily: "var(--mono)", fontSize: 10, fontWeight: 700,
+                                  borderRadius: "50%", width: 22, height: 22,
+                                  display: "flex", alignItems: "center", justifyContent: "center",
+                                  fontFamily: "var(--mono)", fontSize: 12, fontWeight: 700,
+                                  boxShadow: "0 1px 4px rgba(0,0,0,0.15)",
                                 }}>✓</div>
                               </div>
                             )}
