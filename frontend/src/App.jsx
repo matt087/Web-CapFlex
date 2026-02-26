@@ -115,10 +115,13 @@ export default function CapFlexUI() {
 
   const canvasRef = useRef(null);
 
+  // Flag para saber si el cambio de modo viene de "Use in Clustering"
   const [comingFromEmbeddings, setComingFromEmbeddings] = useState(false);
 
+  // Limpiar todo al cambiar de modo
   useEffect(() => {
     if (comingFromEmbeddings) {
+      // Viniendo de embeddings: solo limpiar el panel de embeddings, conservar embJobId
       setComingFromEmbeddings(false);
       setImgFiles([]); setEmbStatus("idle"); setEmbStatusMsg("No images selected");
       setEmbProgress(0); setEmbResultJobId(null);
@@ -635,6 +638,125 @@ export default function CapFlexUI() {
 
           {/* Content */}
           <div className="content">
+
+            {/* ── EMBEDDINGS GALLERY (reemplaza todo el content cuando modo=embeddings) ── */}
+            {sidebarMode === "embeddings" ? (
+              <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+                {/* Status bar embeddings */}
+                <div className="status-bar">
+                  <div className={`status-dot ${embStatus === "loading" ? "active" : embStatus === "done" ? "done" : embStatus === "error" ? "error" : ""}`} />
+                  <span style={{ color: embStatus === "error" ? "#E83A5A" : "var(--text-2)" }}>{embStatusMsg}</span>
+                  {embStatus === "loading" && (
+                    <span style={{ marginLeft: "auto", color: ACCENT, fontFamily: "'Space Mono',monospace", fontSize: 11 }}>{Math.round(embProgress)}%</span>
+                  )}
+                </div>
+                <div className="progress-bar">
+                  {embStatus === "loading"
+                    ? embProgress < 20
+                      ? <div className="progress-fill indeterminate" />
+                      : <div className="progress-fill" style={{ width: `${embProgress}%` }} />
+                    : <div className="progress-fill" style={{ width: embStatus === "done" ? "100%" : "0%", opacity: 0.3 }} />}
+                </div>
+
+                {/* Gallery */}
+                {imgFiles.length === 0 ? (
+                  <div className="pca-overlay" style={{ position: "relative", flex: 1 }}>
+                    <div className="pca-placeholder">
+                      <div className="big">🖼</div>
+                      <p>Select images in the sidebar to preview them here</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ flex: 1, overflowY: "auto", padding: 24 }}>
+                    {/* Counter bar */}
+                    <div style={{
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      marginBottom: 16,
+                    }}>
+                      <div style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--text-2)" }}>
+                        {imgFiles.length} image{imgFiles.length > 1 ? "s" : ""} selected
+                      </div>
+                      {embStatus === "done" && (
+                        <div style={{
+                          fontFamily: "var(--mono)", fontSize: 11, color: "#00C48C",
+                          background: "#E6FAF4", border: "1px solid #00C48C",
+                          borderRadius: 4, padding: "3px 10px",
+                        }}>
+                          ✓ {imgFiles.length} embeddings generated
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Grid */}
+                    <div style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+                      gap: 12,
+                    }}>
+                      {imgFiles.map((f, i) => {
+                        const url = URL.createObjectURL(f);
+                        return (
+                          <div key={i} style={{ position: "relative", borderRadius: 8, overflow: "hidden",
+                            border: "1.5px solid var(--border)", background: "var(--surface)",
+                            boxShadow: "0 1px 4px rgba(13,27,46,0.07)",
+                            aspectRatio: "1",
+                          }}>
+                            <img
+                              src={url}
+                              alt={f.name}
+                              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                              onLoad={() => URL.revokeObjectURL(url)}
+                            />
+                            {/* Overlay loading */}
+                            {embStatus === "loading" && (
+                              <div style={{
+                                position: "absolute", inset: 0,
+                                background: "rgba(255,255,255,0.6)",
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                              }}>
+                                <div style={{
+                                  width: 24, height: 24,
+                                  border: "3px solid var(--border)",
+                                  borderTopColor: ACCENT,
+                                  borderRadius: "50%",
+                                  animation: "spin 0.8s linear infinite",
+                                }} />
+                              </div>
+                            )}
+                            {/* Overlay done */}
+                            {embStatus === "done" && (
+                              <div style={{
+                                position: "absolute", inset: 0,
+                                background: "rgba(0,196,140,0.15)",
+                                display: "flex", alignItems: "flex-end", justifyContent: "flex-end",
+                                padding: 6,
+                              }}>
+                                <div style={{
+                                  background: "#00C48C", color: "#fff",
+                                  borderRadius: 4, padding: "2px 6px",
+                                  fontFamily: "var(--mono)", fontSize: 10, fontWeight: 700,
+                                }}>✓</div>
+                              </div>
+                            )}
+                            {/* Filename tooltip */}
+                            <div style={{
+                              position: "absolute", bottom: 0, left: 0, right: 0,
+                              background: "rgba(13,27,46,0.7)",
+                              color: "#fff", fontFamily: "var(--mono)", fontSize: 9,
+                              padding: "3px 6px",
+                              whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                            }}>
+                              {f.name}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+
             <div className="status-bar">
               <div className={`status-dot ${status === "loading" ? "active" : status === "done" ? "done" : status === "error" ? "error" : ""}`} />
               <span>{statusMsg}</span>
@@ -642,14 +764,15 @@ export default function CapFlexUI() {
                 <span style={{ marginLeft: "auto", color: ACCENT, fontFamily: "'Space Mono',monospace", fontSize: 11 }}>{Math.round(progress)}%</span>
               )}
             </div>
-            <div className="progress-bar">
+            )}
+            {sidebarMode !== "embeddings" && <div className="progress-bar">
               {status === "loading"
                 ? progress < 20 ? <div className="progress-fill indeterminate" /> : <div className="progress-fill" style={{ width: `${progress}%` }} />
                 : <div className="progress-fill" style={{ width: status === "done" ? "100%" : "0%", opacity: 0.3 }} />}
-            </div>
+            </div>}
 
             {/* PCA Tab */}
-            {activeTab === "pca" && (
+            {sidebarMode !== "embeddings" && activeTab === "pca" && (
               <>
                 <div className="pca-area">
                   <canvas ref={canvasRef} className="pca-canvas" onMouseMove={handleCanvasMouseMove} onMouseLeave={() => setTooltip((t) => ({ ...t, visible: false }))} />
@@ -715,7 +838,7 @@ export default function CapFlexUI() {
             )}
 
             {/* Table Tab */}
-            {activeTab === "table" && (
+            {sidebarMode !== "embeddings" && activeTab === "table" && (
               <>
                 {clustered && kneeMetrics && (
                   <div className="metrics-row">
