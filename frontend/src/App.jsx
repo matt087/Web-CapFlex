@@ -115,8 +115,18 @@ export default function CapFlexUI() {
 
   const canvasRef = useRef(null);
 
+  // Flag para saber si el cambio de modo viene de "Use in Clustering"
+  const [comingFromEmbeddings, setComingFromEmbeddings] = useState(false);
+
   // Limpiar todo al cambiar de modo
   useEffect(() => {
+    if (comingFromEmbeddings) {
+      // Viniendo de embeddings: solo limpiar el panel de embeddings, conservar embJobId
+      setComingFromEmbeddings(false);
+      setImgFiles([]); setEmbStatus("idle"); setEmbStatusMsg("No images selected");
+      setEmbProgress(0); setEmbResultJobId(null);
+      return;
+    }
     setPoints([]); setClustered(false); setPareto([]); setKneeMetrics(null);
     setClusterFilter(null); setStatus("idle"); setStatusMsg("No data loaded");
     setProgress(0); setFile(null); setFileName(null); setEmbJobId(null);
@@ -265,10 +275,14 @@ export default function CapFlexUI() {
 
   const handleUseInClustering = () => {
     if (!embResultJobId) return;
-    setEmbJobId(embResultJobId); setFile(null); setFileName(null); setInputType("embeddings");
-    setSidebarMode("clustering");
-    setStatusMsg(`Using embedding job ${embResultJobId.slice(0, 8)}… — configure cardinality and click Run`);
+    // Guardar job_id antes de cambiar de modo (el useEffect lo limpiaría)
+    const jobId = embResultJobId;
+    setComingFromEmbeddings(true);
+    setEmbJobId(jobId);
+    setFile(null); setFileName(null); setInputType("embeddings");
+    setStatusMsg(`Using embedding job ${jobId.slice(0, 8)}… — configure cardinality and click Run`);
     setStatus("idle"); setClustered(false); setPoints([]); setPareto([]); setKneeMetrics(null);
+    setSidebarMode("clustering");
   };
 
   // ---------------------------------------------------------------------------
