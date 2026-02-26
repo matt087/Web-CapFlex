@@ -286,6 +286,20 @@ export default function CapFlexUI() {
   };
 
   // ---------------------------------------------------------------------------
+  // Reset completo
+  // ---------------------------------------------------------------------------
+  const handleReset = () => {
+    setPoints([]); setClustered(false); setPareto([]); setKneeMetrics(null);
+    setClusterFilter(null); setStatus("idle"); setStatusMsg("No data loaded");
+    setProgress(0); setFile(null); setFileName(null); setEmbJobId(null);
+    setCsvColumns([]); setExcludedCols([]); setLabelCol("");
+    setImgFiles([]); setEmbStatus("idle"); setEmbStatusMsg("No images selected");
+    setEmbProgress(0); setEmbResultJobId(null); setActiveTab("pca");
+    setComingFromEmbeddings(false); setInputType("tabular");
+    setSidebarMode("clustering");
+  };
+
+  // ---------------------------------------------------------------------------
   // Canvas
   // ---------------------------------------------------------------------------
   const drawCanvas = useCallback(() => {
@@ -388,7 +402,7 @@ export default function CapFlexUI() {
     <>
       <div className="app">
         <header className="header">
-          <div className="logo">Cap<span>Flex</span></div>
+          <div className="logo" onClick={handleReset} style={{ cursor: "pointer" }}>Cap<span>Flex</span></div>
           <div className="badge">2026</div>
           <div style={{ fontSize: 13, color: MUTED, fontFamily: "'Space Mono', monospace" }}>
             Semi-supervised Flexible Cardinality Clustering
