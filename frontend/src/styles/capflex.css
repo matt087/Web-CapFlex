@@ -69,7 +69,12 @@ body {
   font-size: 26px;
   color: var(--accent);
   letter-spacing: -1px;
+cursor: pointer;
+  user-select: none;
+  transition: opacity 0.15s;
 }
+
+.logo:hover { opacity: 0.75; }
 
 .logo span {
   color: var(--text);
