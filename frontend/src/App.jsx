@@ -192,7 +192,6 @@ export default function CapFlexUI() {
       if (embJobId) {
         form.append("embedding_job_id", embJobId);
       } else {
-        // Construir CSV filtrado según columnas seleccionadas
         let fileToSend = file;
         if (excludedCols.length > 0) {
           const text    = await file.text();
@@ -287,7 +286,6 @@ export default function CapFlexUI() {
     setStatus("idle"); setClustered(false); setPoints([]); setPareto([]); setKneeMetrics(null);
     setSidebarMode("clustering");
 
-    // Preview: descargar el CSV de embeddings y mostrar puntos grises
     try {
       const rows = await fetchCSV(`${EMBEDDING_API}/embeddings/download/${jobId}`);
       if (rows.length) {
@@ -305,7 +303,6 @@ export default function CapFlexUI() {
         setPoints(preview);
       }
     } catch (_) {
-      // Si falla la preview no es crítico
     }
   };
 
@@ -440,7 +437,6 @@ export default function CapFlexUI() {
         <div className="main">
           <aside className="sidebar">
 
-            {/* Mode toggle */}
             <div className="section">
               <div className="input-type-group">
                 <button className={`input-type-btn ${sidebarMode === "clustering" ? "active" : ""}`} onClick={() => setSidebarMode("clustering")}>CLUSTERING</button>
@@ -448,10 +444,8 @@ export default function CapFlexUI() {
               </div>
             </div>
 
-            {/* ── CLUSTERING PANEL ── */}
             {sidebarMode === "clustering" && (
               <>
-                {/* Embedding job banner */}
                 {embJobId && (
                   <div className="section">
                     <div style={{ background: "#E8F0FF", border: `1px solid ${ACCENT}40`, borderRadius: 6, padding: "8px 10px" }}>
@@ -465,7 +459,6 @@ export default function CapFlexUI() {
                   </div>
                 )}
 
-                {/* Upload */}
                 {!embJobId && (
                   <div className="section">
                     <div className="section-title">Data Source</div>
@@ -485,11 +478,9 @@ export default function CapFlexUI() {
                   </div>
                 )}
 
-                {/* Parameters */}
                 <div className="section">
                   <div className="section-title">Parameters</div>
 
-                  {/* Columnas del CSV */}
                   {csvColumns.length > 0 && !embJobId && (
                     <>
                       <div className="form-group">
@@ -539,7 +530,6 @@ export default function CapFlexUI() {
                     </>
                   )}
 
-                  {/* Fallback input manual si no hay CSV */}
                   {!csvColumns.length && !embJobId && inputType === "tabular" && (
                     <div className="form-group">
                       <div className="form-label">LABEL COLUMN <span className="hint">optional</span></div>
@@ -573,14 +563,12 @@ export default function CapFlexUI() {
                   </div>
                 </div>
 
-                {/* Run */}
                 <div className="section">
                   <button className="run-btn" onClick={handleRun} disabled={(!file && !embJobId) || status === "loading"}>
                     {status === "loading" ? <><span className="shimmer" />Running…</> : "▶ Run CapFlex"}
                   </button>
                 </div>
 
-                {/* Knee metrics */}
                 {kneeMetrics && (
                   <div className="section">
                     <div className="section-title">Knee Point Solution</div>
@@ -601,7 +589,6 @@ export default function CapFlexUI() {
               </>
             )}
 
-            {/* ── EMBEDDINGS PANEL ── */}
             {sidebarMode === "embeddings" && (
               <>
                 <div className="section">
@@ -660,13 +647,10 @@ export default function CapFlexUI() {
             )}
           </aside>
 
-          {/* Content */}
           <div className="content">
 
-            {/* ── EMBEDDINGS GALLERY (reemplaza todo el content cuando modo=embeddings) ── */}
             {sidebarMode === "embeddings" ? (
               <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
-                {/* Status bar embeddings */}
                 <div className="status-bar">
                   <div className={`status-dot ${embStatus === "loading" ? "active" : embStatus === "done" ? "done" : embStatus === "error" ? "error" : ""}`} />
                   <span style={{ color: embStatus === "error" ? "#E83A5A" : "var(--text-2)" }}>{embStatusMsg}</span>
@@ -682,7 +666,6 @@ export default function CapFlexUI() {
                     : <div className="progress-fill" style={{ width: embStatus === "done" ? "100%" : "0%", opacity: 0.3 }} />}
                 </div>
 
-                {/* Gallery */}
                 {imgFiles.length === 0 ? (
                   <div className="pca-overlay" style={{ position: "relative", flex: 1 }}>
                     <div className="pca-placeholder">
@@ -692,7 +675,6 @@ export default function CapFlexUI() {
                   </div>
                 ) : (
                   <div style={{ flex: 1, overflowY: "auto", padding: 24 }}>
-                    {/* Counter bar */}
                     <div style={{
                       display: "flex", alignItems: "center", justifyContent: "space-between",
                       marginBottom: 16,
@@ -711,7 +693,6 @@ export default function CapFlexUI() {
                       )}
                     </div>
 
-                    {/* Grid */}
                     <div style={{
                       display: "grid",
                       gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
@@ -731,7 +712,6 @@ export default function CapFlexUI() {
                               style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                               onLoad={() => URL.revokeObjectURL(url)}
                             />
-                            {/* Overlay loading */}
                             {embStatus === "loading" && (
                               <div style={{
                                 position: "absolute", inset: 0,
@@ -747,7 +727,6 @@ export default function CapFlexUI() {
                                 }} />
                               </div>
                             )}
-                            {/* Overlay done */}
                             {embStatus === "done" && (
                               <div style={{
                                 position: "absolute", inset: 0,
@@ -765,7 +744,6 @@ export default function CapFlexUI() {
                                 }}>✓</div>
                               </div>
                             )}
-                            {/* Filename tooltip */}
                             <div style={{
                               position: "absolute", bottom: 0, left: 0, right: 0,
                               background: "rgba(13,27,46,0.7)",
@@ -798,7 +776,6 @@ export default function CapFlexUI() {
                 : <div className="progress-fill" style={{ width: status === "done" ? "100%" : "0%", opacity: 0.3 }} />}
             </div>}
 
-            {/* PCA Tab */}
             {sidebarMode !== "embeddings" && activeTab === "pca" && (
               <>
                 <div className="pca-area">
@@ -864,7 +841,6 @@ export default function CapFlexUI() {
               </>
             )}
 
-            {/* Table Tab */}
             {sidebarMode !== "embeddings" && activeTab === "table" && (
               <>
                 {clustered && kneeMetrics && (
