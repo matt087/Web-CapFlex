@@ -6,13 +6,13 @@ const CLUSTER_COLORS = [
   "#FF7A3D", "#00E0FF", "#FF3DE8", "#7FFF00", "#FF9AAA",
 ];
 
-const BG     = "#F4F7FB";
+const BG = "#F4F7FB";
 const BORDER = "#D6E0EE";
 const ACCENT = "#0066FF";
-const MUTED  = "#8FA3BF";
+const MUTED = "#8FA3BF";
 
 const CLUSTERING_API = "/api/clustering";
-const EMBEDDING_API  = "/api/embedding";
+const EMBEDDING_API = "/api/embedding";
 
 async function apiPost(url, formData) {
   const res = await fetch(url, { method: "POST", body: formData });
@@ -38,7 +38,7 @@ async function pollStatus(statusUrl, onStatus, intervalMs = 1500) {
       try {
         const data = await apiGet(statusUrl);
         onStatus(data.status);
-        if (data.status === "done")  { clearInterval(iv); resolve(data); }
+        if (data.status === "done") { clearInterval(iv); resolve(data); }
         if (data.status === "error") { clearInterval(iv); reject(new Error(data.error || "Job failed")); }
       } catch (e) { clearInterval(iv); reject(e); }
     }, intervalMs);
@@ -53,7 +53,7 @@ async function fetchCSV(url) {
   const headers = lines[0].split(",").map((h) => h.trim());
   return lines.slice(1).map((line) => {
     const vals = line.split(",");
-    const obj  = {};
+    const obj = {};
     headers.forEach((h, i) => {
       const v = vals[i]?.trim();
       obj[h] = isNaN(v) || v === "" ? v : +v;
@@ -64,9 +64,9 @@ async function fetchCSV(url) {
 
 function rowsToPoints(rows, embPrefix = "emb") {
   if (!rows.length) return [];
-  const allKeys     = Object.keys(rows[0]);
+  const allKeys = Object.keys(rows[0]);
   const featureKeys = allKeys.filter(
-    (k) => k !== "cluster" && k !== "true_label" && !k.startsWith(`${embPrefix}_`)
+    (k) => k !== "cluster" && k !== "true_label" && k !== "id" && !k.startsWith(`${embPrefix}_`)
   );
   let xKey = featureKeys.find((k) => typeof rows[0][k] === "number");
   let yKey = featureKeys.filter((k) => typeof rows[0][k] === "number")[1];
@@ -77,40 +77,47 @@ function rowsToPoints(rows, embPrefix = "emb") {
     featureKeys.slice(0, 6).forEach((k) => {
       if (typeof row[k] === "number") features[k] = row[k];
     });
-    return { id: i, x: row[xKey] ?? 0, y: row[yKey] ?? 0, cluster: row.cluster ?? null, trueLabel: row.true_label ?? null, features };
+    return {
+      id: i,
+      filename: row.id ?? null,
+      x: row[xKey] ?? 0, y: row[yKey] ?? 0,
+      cluster: row.cluster ?? null,
+      trueLabel: row.true_label ?? null,
+      features
+    };
   });
 }
 
 export default function CapFlexUI() {
   const [sidebarMode, setSidebarMode] = useState("clustering");
-  const [activeTab, setActiveTab]     = useState("pca");
-  const [inputType, setInputType]     = useState("tabular");
-  const [file, setFile]               = useState(null);
-  const [fileName, setFileName]       = useState(null);
-  const [labelCol, setLabelCol]       = useState("");
-  const [csvColumns, setCsvColumns]   = useState([]);
+  const [activeTab, setActiveTab] = useState("pca");
+  const [inputType, setInputType] = useState("tabular");
+  const [file, setFile] = useState(null);
+  const [fileName, setFileName] = useState(null);
+  const [labelCol, setLabelCol] = useState("");
+  const [csvColumns, setCsvColumns] = useState([]);
   const [excludedCols, setExcludedCols] = useState([]);
-  const [targetCard, setTargetCard]   = useState("50,50,50");
-  const [delta, setDelta]             = useState(0.1);
-  const [maxIter, setMaxIter]         = useState("");
-  const [embPrefix, setEmbPrefix]     = useState("emb");
-  const [embJobId, setEmbJobId]       = useState(null);
-  const [status, setStatus]           = useState("idle");
-  const [statusMsg, setStatusMsg]     = useState("No data loaded");
-  const [progress, setProgress]       = useState(0);
-  const [points, setPoints]           = useState([]);
-  const [clustered, setClustered]     = useState(false);
-  const [pareto, setPareto]           = useState([]);
+  const [targetCard, setTargetCard] = useState("50,50,50");
+  const [delta, setDelta] = useState(0.1);
+  const [maxIter, setMaxIter] = useState("");
+  const [embPrefix, setEmbPrefix] = useState("emb");
+  const [embJobId, setEmbJobId] = useState(null);
+  const [status, setStatus] = useState("idle");
+  const [statusMsg, setStatusMsg] = useState("No data loaded");
+  const [progress, setProgress] = useState(0);
+  const [points, setPoints] = useState([]);
+  const [clustered, setClustered] = useState(false);
+  const [pareto, setPareto] = useState([]);
   const [kneeMetrics, setKneeMetrics] = useState(null);
   const [clusterFilter, setClusterFilter] = useState(null);
-  const [sortCol, setSortCol]         = useState(null);
-  const [sortDir, setSortDir]         = useState("asc");
-  const [tooltip, setTooltip]         = useState({ visible: false, x: 0, y: 0, data: null });
+  const [sortCol, setSortCol] = useState(null);
+  const [sortDir, setSortDir] = useState("asc");
+  const [tooltip, setTooltip] = useState({ visible: false, x: 0, y: 0, data: null });
 
-  const [imgFiles, setImgFiles]             = useState([]);
-  const [embStatus, setEmbStatus]           = useState("idle");
-  const [embStatusMsg, setEmbStatusMsg]     = useState("No images selected");
-  const [embProgress, setEmbProgress]       = useState(0);
+  const [imgFiles, setImgFiles] = useState([]);
+  const [embStatus, setEmbStatus] = useState("idle");
+  const [embStatusMsg, setEmbStatusMsg] = useState("No images selected");
+  const [embProgress, setEmbProgress] = useState(0);
   const [embResultJobId, setEmbResultJobId] = useState(null);
 
   const canvasRef = useRef(null);
@@ -121,9 +128,8 @@ export default function CapFlexUI() {
   // Limpiar todo al cambiar de modo
   useEffect(() => {
     if (comingFromEmbeddings) {
-      // Viniendo de embeddings: solo limpiar el panel de embeddings, conservar embJobId
       setComingFromEmbeddings(false);
-      setImgFiles([]); setEmbStatus("idle"); setEmbStatusMsg("No images selected");
+      setEmbStatus("idle"); setEmbStatusMsg("No images selected");
       setEmbProgress(0); setEmbResultJobId(null);
       return;
     }
@@ -146,12 +152,12 @@ export default function CapFlexUI() {
     setStatus("idle"); setClustered(false); setPareto([]); setKneeMetrics(null); setClusterFilter(null);
 
     try {
-      const text  = await f.text();
+      const text = await f.text();
       const lines = text.trim().split("\n");
       const headers = lines[0].split(",").map((h) => h.trim());
       const rows = lines.slice(1).map((line) => {
         const vals = line.split(",");
-        const obj  = {};
+        const obj = {};
         headers.forEach((h, i) => { const v = vals[i]?.trim(); obj[h] = isNaN(v) || v === "" ? v : +v; });
         return obj;
       });
@@ -188,14 +194,13 @@ export default function CapFlexUI() {
       if (embJobId) {
         form.append("embedding_job_id", embJobId);
       } else {
-        // Construir CSV filtrado según columnas seleccionadas
         let fileToSend = file;
         if (excludedCols.length > 0) {
-          const text    = await file.text();
-          const lines   = text.trim().split("\n");
+          const text = await file.text();
+          const lines = text.trim().split("\n");
           const headers = lines[0].split(",").map((h) => h.trim());
           const keepCols = headers.filter((h) => !excludedCols.includes(h));
-          const keepIdx  = keepCols.map((h) => headers.indexOf(h));
+          const keepIdx = keepCols.map((h) => headers.indexOf(h));
           const filtered = [
             keepCols.join(","),
             ...lines.slice(1).map((line) => {
@@ -229,7 +234,7 @@ export default function CapFlexUI() {
       const paretoUI = results.pareto_front.map((sol, idx) => ({
         ...sol,
         isKnee: sol.cardinality === results.knee_point.cardinality &&
-                idx === results.pareto_front.findIndex((s) => s.cardinality === results.knee_point.cardinality),
+          idx === results.pareto_front.findIndex((s) => s.cardinality === results.knee_point.cardinality),
       }));
       if (!paretoUI.some((s) => s.isKnee) && paretoUI.length)
         paretoUI[Math.floor(paretoUI.length / 2)].isKnee = true;
@@ -379,12 +384,12 @@ export default function CapFlexUI() {
 
   const tableData = clustered
     ? points.filter((p) => clusterFilter === null || p.cluster === clusterFilter)
-        .sort((a, b) => {
-          if (!sortCol) return 0;
-          const va = sortCol === "cluster" ? a.cluster : a.features?.[sortCol] ?? 0;
-          const vb = sortCol === "cluster" ? b.cluster : b.features?.[sortCol] ?? 0;
-          return sortDir === "asc" ? va - vb : vb - va;
-        })
+      .sort((a, b) => {
+        if (!sortCol) return 0;
+        const va = sortCol === "cluster" ? a.cluster : a.features?.[sortCol] ?? 0;
+        const vb = sortCol === "cluster" ? b.cluster : b.features?.[sortCol] ?? 0;
+        return sortDir === "asc" ? va - vb : vb - va;
+      })
     : [];
 
   const handleSort = (col) => {
@@ -562,10 +567,10 @@ export default function CapFlexUI() {
                     <div className="section-title">Knee Point Solution</div>
                     {[
                       ["Silhouette", typeof kneeMetrics.silhouette === "number" ? kneeMetrics.silhouette.toFixed(4) : "—"],
-                      ["CSVI",       typeof kneeMetrics.CSVI       === "number" ? kneeMetrics.CSVI.toFixed(4)       : "—"],
-                      ["ILVC",       kneeMetrics.ILVC ?? "—"],
-                      ["CLVC",       kneeMetrics.CLVC ?? "—"],
-                      ["AMI",        kneeMetrics.AMI != null ? (+kneeMetrics.AMI).toFixed(4) : "N/A"],
+                      ["CSVI", typeof kneeMetrics.CSVI === "number" ? kneeMetrics.CSVI.toFixed(4) : "—"],
+                      ["ILVC", kneeMetrics.ILVC ?? "—"],
+                      ["CLVC", kneeMetrics.CLVC ?? "—"],
+                      ["AMI", kneeMetrics.AMI != null ? (+kneeMetrics.AMI).toFixed(4) : "N/A"],
                     ].map(([k, v]) => (
                       <div key={k} className="pareto-metric" style={{ marginBottom: 6 }}>
                         <span className="k" style={{ fontFamily: "'Space Mono',monospace", fontSize: 10, color: MUTED }}>{k}</span>
@@ -696,7 +701,8 @@ export default function CapFlexUI() {
                       {imgFiles.map((f, i) => {
                         const url = URL.createObjectURL(f);
                         return (
-                          <div key={i} style={{ position: "relative", borderRadius: 8, overflow: "hidden",
+                          <div key={i} style={{
+                            position: "relative", borderRadius: 8, overflow: "hidden",
                             border: "1.5px solid var(--border)", background: "var(--surface)",
                             boxShadow: "0 1px 4px rgba(13,27,46,0.07)",
                             aspectRatio: "1",
@@ -760,13 +766,13 @@ export default function CapFlexUI() {
               </div>
             ) : (
 
-            <div className="status-bar">
-              <div className={`status-dot ${status === "loading" ? "active" : status === "done" ? "done" : status === "error" ? "error" : ""}`} />
-              <span>{statusMsg}</span>
-              {status === "loading" && (
-                <span style={{ marginLeft: "auto", color: ACCENT, fontFamily: "'Space Mono',monospace", fontSize: 11 }}>{Math.round(progress)}%</span>
-              )}
-            </div>
+              <div className="status-bar">
+                <div className={`status-dot ${status === "loading" ? "active" : status === "done" ? "done" : status === "error" ? "error" : ""}`} />
+                <span>{statusMsg}</span>
+                {status === "loading" && (
+                  <span style={{ marginLeft: "auto", color: ACCENT, fontFamily: "'Space Mono',monospace", fontSize: 11 }}>{Math.round(progress)}%</span>
+                )}
+              </div>
             )}
             {sidebarMode !== "embeddings" && <div className="progress-bar">
               {status === "loading"
@@ -847,10 +853,10 @@ export default function CapFlexUI() {
                   <div className="metrics-row">
                     {[
                       ["Silhouette", typeof kneeMetrics.silhouette === "number" ? kneeMetrics.silhouette.toFixed(4) : "—", true],
-                      ["CSVI",       typeof kneeMetrics.CSVI       === "number" ? kneeMetrics.CSVI.toFixed(4)       : "—", false],
-                      ["ILVC",       kneeMetrics.ILVC ?? "—", false],
-                      ["CLVC",       kneeMetrics.CLVC ?? "—", false],
-                      ["AMI",        kneeMetrics.AMI != null ? (+kneeMetrics.AMI).toFixed(4) : "N/A", true],
+                      ["CSVI", typeof kneeMetrics.CSVI === "number" ? kneeMetrics.CSVI.toFixed(4) : "—", false],
+                      ["ILVC", kneeMetrics.ILVC ?? "—", false],
+                      ["CLVC", kneeMetrics.CLVC ?? "—", false],
+                      ["AMI", kneeMetrics.AMI != null ? (+kneeMetrics.AMI).toFixed(4) : "N/A", true],
                     ].map(([k, v, good]) => (
                       <div key={k} className="metric-cell">
                         <span className="mk">{k}</span>
@@ -891,7 +897,23 @@ export default function CapFlexUI() {
                         <tbody>
                           {tableData.slice(0, 300).map((pt) => (
                             <tr key={pt.id}>
-                              <td>{pt.id}</td>
+                              <td>
+                                {pt.filename && imgFiles.length > 0 ? (() => {
+                                  const imgFile = imgFiles.find(f => f.name === pt.filename);
+                                  return imgFile ? (
+                                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                      <img
+                                        src={URL.createObjectURL(imgFile)}
+                                        alt={pt.filename}
+                                        style={{ width: 36, height: 36, objectFit: "cover", borderRadius: 4, border: "1px solid var(--border)", flexShrink: 0 }}
+                                      />
+                                      <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--text-2)", wordBreak: "break-all" }}>
+                                        {pt.filename}
+                                      </span>
+                                    </div>
+                                  ) : <span>{pt.filename}</span>;
+                                })() : pt.id}
+                              </td>
                               {Object.values(pt.features).map((v, i) => <td key={i}>{v}</td>)}
                               <td>
                                 <span className="cluster-badge" style={{ background: CLUSTER_COLORS[pt.cluster % CLUSTER_COLORS.length] + "20", color: CLUSTER_COLORS[pt.cluster % CLUSTER_COLORS.length] }}>
