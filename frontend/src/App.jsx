@@ -66,7 +66,7 @@ function rowsToPoints(rows, embPrefix = "emb") {
   if (!rows.length) return [];
   const allKeys     = Object.keys(rows[0]);
   const featureKeys = allKeys.filter(
-    (k) => k !== "cluster" && k !== "true_label" && !k.startsWith(`${embPrefix}_`)
+    (k) => k !== "cluster" && k !== "true_label" && k !== "id" && !k.startsWith(`${embPrefix}_`)
   );
   let xKey = featureKeys.find((k) => typeof rows[0][k] === "number");
   let yKey = featureKeys.filter((k) => typeof rows[0][k] === "number")[1];
@@ -77,7 +77,14 @@ function rowsToPoints(rows, embPrefix = "emb") {
     featureKeys.slice(0, 6).forEach((k) => {
       if (typeof row[k] === "number") features[k] = row[k];
     });
-    return { id: i, x: row[xKey] ?? 0, y: row[yKey] ?? 0, cluster: row.cluster ?? null, trueLabel: row.true_label ?? null, features };
+    return {
+      id: i,
+      filename: row.id ?? null,
+      x: row[xKey] ?? 0, y: row[yKey] ?? 0,
+      cluster: row.cluster ?? null,
+      trueLabel: row.true_label ?? null,
+      features
+    };
   });
 }
 
@@ -115,15 +122,12 @@ export default function CapFlexUI() {
 
   const canvasRef = useRef(null);
 
-  // Flag para saber si el cambio de modo viene de "Use in Clustering"
   const [comingFromEmbeddings, setComingFromEmbeddings] = useState(false);
 
-  // Limpiar todo al cambiar de modo
   useEffect(() => {
     if (comingFromEmbeddings) {
-      // Viniendo de embeddings: solo limpiar el panel de embeddings, conservar embJobId
       setComingFromEmbeddings(false);
-      setImgFiles([]); setEmbStatus("idle"); setEmbStatusMsg("No images selected");
+      setEmbStatus("idle"); setEmbStatusMsg("No images selected");
       setEmbProgress(0); setEmbResultJobId(null);
       return;
     }
@@ -273,9 +277,8 @@ export default function CapFlexUI() {
     window.open(`${EMBEDDING_API}/embeddings/download/${embResultJobId}`, "_blank");
   };
 
-  const handleUseInClustering = () => {
+  const handleUseInClustering = async () => {
     if (!embResultJobId) return;
-    // Guardar job_id antes de cambiar de modo (el useEffect lo limpiaría)
     const jobId = embResultJobId;
     setComingFromEmbeddings(true);
     setEmbJobId(jobId);
@@ -283,6 +286,27 @@ export default function CapFlexUI() {
     setStatusMsg(`Using embedding job ${jobId.slice(0, 8)}… — configure cardinality and click Run`);
     setStatus("idle"); setClustered(false); setPoints([]); setPareto([]); setKneeMetrics(null);
     setSidebarMode("clustering");
+
+    // Preview: descargar el CSV de embeddings y mostrar puntos grises
+    try {
+      const rows = await fetchCSV(`${EMBEDDING_API}/embeddings/download/${jobId}`);
+      if (rows.length) {
+        const embCols = Object.keys(rows[0]).filter(k => k.startsWith("emb_") && typeof rows[0][k] === "number");
+        const xKey = embCols[0] ?? "emb_0";
+        const yKey = embCols[1] ?? "emb_1";
+        const preview = rows.map((row, i) => ({
+          id: i,
+          filename: row.id ?? null,
+          x: row[xKey] ?? 0,
+          y: row[yKey] ?? 0,
+          cluster: null,
+          features: {},
+        }));
+        setPoints(preview);
+      }
+    } catch (_) {
+      // Si falla la preview no es crítico
+    }
   };
 
   // ---------------------------------------------------------------------------
@@ -891,7 +915,23 @@ export default function CapFlexUI() {
                         <tbody>
                           {tableData.slice(0, 300).map((pt) => (
                             <tr key={pt.id}>
-                              <td>{pt.id}</td>
+                              <td>
+                                {pt.filename && imgFiles.length > 0 ? (() => {
+                                  const imgFile = imgFiles.find(f => f.name === pt.filename);
+                                  return imgFile ? (
+                                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                      <img
+                                        src={URL.createObjectURL(imgFile)}
+                                        alt={pt.filename}
+                                        style={{ width: 36, height: 36, objectFit: "cover", borderRadius: 4, border: "1px solid var(--border)", flexShrink: 0 }}
+                                      />
+                                      <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--text-2)", wordBreak: "break-all" }}>
+                                        {pt.filename}
+                                      </span>
+                                    </div>
+                                  ) : <span>{pt.filename}</span>;
+                                })() : pt.id}
+                              </td>
                               {Object.values(pt.features).map((v, i) => <td key={i}>{v}</td>)}
                               <td>
                                 <span className="cluster-badge" style={{ background: CLUSTER_COLORS[pt.cluster % CLUSTER_COLORS.length] + "20", color: CLUSTER_COLORS[pt.cluster % CLUSTER_COLORS.length] }}>

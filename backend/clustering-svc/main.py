@@ -165,6 +165,8 @@ def _new_job() -> str:
 def _load_input(csv_path, input_type, label_column, embedding_prefix):
     df = pd.read_csv(csv_path)
     true_labels = None
+    metadata = None
+
     if label_column and label_column in df.columns:
         true_labels = df[label_column].values
         df = df.drop(columns=[label_column])
@@ -178,11 +180,14 @@ def _load_input(csv_path, input_type, label_column, embedding_prefix):
                 f"No columns with prefix '{embedding_prefix}_' found. "
                 f"Available: {list(df.columns)}"
             )
+        meta_cols = [c for c in df.columns if not c.startswith(f"{embedding_prefix}_")]
+        if meta_cols:
+            metadata = df[meta_cols].reset_index(drop=True)
         input_data = df[emb_cols].astype(float).reset_index(drop=True)
     else:
         raise ValueError(f"Unknown input_type '{input_type}'. Use 'tabular' or 'embeddings'.")
 
-    return input_data, true_labels
+    return input_data, true_labels, metadata
 
 def sanitize(obj):
     """Recursively convert NumPy types and NaN/Inf to JSON-safe Python types."""
@@ -207,7 +212,7 @@ def _run_clustering(job_id, csv_path, input_type, label_column,
     try:
         jobs[job_id]["status"] = "running"
 
-        input_data, true_labels = _load_input(
+        input_data, true_labels, metadata = _load_input(
             csv_path, input_type, label_column, embedding_prefix
         )
 
@@ -272,6 +277,9 @@ def _run_clustering(job_id, csv_path, input_type, label_column,
             ))
 
         out_df = input_data.copy()
+        if metadata is not None:
+            for col in metadata.columns:
+                out_df.insert(0, col, metadata[col].values)
         if true_labels is not None:
             out_df["true_label"] = true_labels
         out_df["cluster"] = p
