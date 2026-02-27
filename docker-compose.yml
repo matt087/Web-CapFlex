@@ -41,6 +41,9 @@ services:
     container_name: capflex_frontend
     ports:
       - "80:80"
+      - "443:443"
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
       - embedding-svc
       - clustering-svc
