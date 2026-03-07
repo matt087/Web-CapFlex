@@ -88,12 +88,6 @@ function rowsToPoints(rows, embPrefix = "emb") {
   });
 }
 
-// inputType values:
-//   "tabular"    → CSV numérico, clustering directo
-//   "images"     → genera embeddings CLIP (imagen)
-//   "text"       → genera embeddings de texto
-//   "embeddings" → carga CSV de embeddings ya generados
-
 const INPUT_TYPES = [
   { value: "tabular",    label: "Tabular",   icon: "⊞", desc: "Numeric CSV"       },
   { value: "images",     label: "Images",    icon: "🖼", desc: "Generate CLIP emb" },
@@ -101,14 +95,13 @@ const INPUT_TYPES = [
   { value: "embeddings", label: "Embedding", icon: "⬡", desc: "Load emb CSV"      },
 ];
 
-// ─── which inputTypes go through the embedding generation flow ───────────────
 const EMB_GEN_TYPES = ["images", "text"];
 
 export default function CapFlexUI() {
   const [activeTab, setActiveTab]     = useState("pca");
   const [inputType, setInputType]     = useState("tabular");
+  const skipInputTypeReset = useRef(false);
 
-  // ── Clustering state ──────────────────────────────────────────────────────
   const [file, setFile]               = useState(null);
   const [fileName, setFileName]       = useState(null);
   const [labelCol, setLabelCol]       = useState("");
@@ -118,7 +111,7 @@ export default function CapFlexUI() {
   const [delta, setDelta]             = useState(0.1);
   const [maxIter, setMaxIter]         = useState("");
   const [embPrefix, setEmbPrefix]     = useState("emb");
-  const [embJobId, setEmbJobId]       = useState(null);   // job id from generation step
+  const [embJobId, setEmbJobId]       = useState(null);
   const [status, setStatus]           = useState("idle");
   const [statusMsg, setStatusMsg]     = useState("No data loaded");
   const [progress, setProgress]       = useState(0);
@@ -131,11 +124,10 @@ export default function CapFlexUI() {
   const [sortDir, setSortDir]         = useState("asc");
   const [tooltip, setTooltip]         = useState({ visible: false, x: 0, y: 0, data: null });
 
-  // ── Embedding generation state ────────────────────────────────────────────
-  const [mediaFiles, setMediaFiles]         = useState([]);
-  const [textCsvColumns, setTextCsvColumns] = useState([]);
-  const [textColumn, setTextColumn]         = useState("");
-  const [textIdColumn, setTextIdColumn]     = useState("");  
+  const [mediaFiles, setMediaFiles]         = useState([]);   // images or text files
+  const [textCsvColumns, setTextCsvColumns] = useState([]);   // columns from text CSV
+  const [textColumn, setTextColumn]         = useState("");   // column to embed
+  const [textIdColumn, setTextIdColumn]     = useState("");   // optional id column
   const [embGenStatus, setEmbGenStatus]     = useState("idle");
   const [embGenMsg, setEmbGenMsg]           = useState("No files selected");
   const [embGenProgress, setEmbGenProgress] = useState(0);
@@ -143,23 +135,24 @@ export default function CapFlexUI() {
 
   const canvasRef = useRef(null);
 
-  // ── Reset embedding gen state when switching away from gen types ──────────
   useEffect(() => {
+    if (skipInputTypeReset.current) {
+      skipInputTypeReset.current = false;
+      return;
+    }
     setMediaFiles([]);
+    setTextCsvColumns([]); setTextColumn(""); setTextIdColumn("");
     setEmbGenStatus("idle");
     setEmbGenMsg("No files selected");
     setEmbGenProgress(0);
     setEmbResultJobId(null);
-    if (!EMB_GEN_TYPES.includes(inputType)) {
-      setPoints([]); setClustered(false); setPareto([]); setKneeMetrics(null);
-      setClusterFilter(null); setStatus("idle"); setStatusMsg("No data loaded");
-      setProgress(0); setFile(null); setFileName(null); setEmbJobId(null);
-      setCsvColumns([]); setExcludedCols([]); setLabelCol("");
-      setActiveTab("pca");
-    }
+    setPoints([]); setClustered(false); setPareto([]); setKneeMetrics(null);
+    setClusterFilter(null); setStatus("idle"); setStatusMsg("No data loaded");
+    setProgress(0); setFile(null); setFileName(null); setEmbJobId(null);
+    setCsvColumns([]); setExcludedCols([]); setLabelCol("");
+    setActiveTab("pca");
   }, [inputType]);
 
-  // ── File upload (tabular or load-embeddings CSV) ──────────────────────────
   const handleFileChange = async (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
@@ -194,7 +187,6 @@ export default function CapFlexUI() {
     }
   };
 
-  // ── Media files (images / text) for embedding generation ─────────────────
   const handleMediaChange = async (e) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
@@ -214,7 +206,6 @@ export default function CapFlexUI() {
     }
   };
 
-  // ── Generate embeddings (images → CLIP, text → text encoder) ─────────────
   const handleGenerateEmbeddings = async () => {
     if (!mediaFiles.length) return;
     try {
@@ -264,12 +255,13 @@ export default function CapFlexUI() {
     window.open(`${EMBEDDING_API}/embeddings/download/${embResultJobId}`, "_blank");
   };
 
-  // ── Use generated embeddings → run clustering ─────────────────────────────
   const handleUseInClustering = async () => {
     if (!embResultJobId) return;
     const jobId = embResultJobId;
     setEmbJobId(jobId);
     setFile(null); setFileName(null);
+    skipInputTypeReset.current = true;
+    setInputType("embeddings");  
     setStatusMsg(`Using embedding job ${jobId.slice(0, 8)}… — configure cardinality and click Run`);
     setStatus("idle"); setClustered(false); setPoints([]); setPareto([]); setKneeMetrics(null);
 
@@ -292,7 +284,6 @@ export default function CapFlexUI() {
     } catch (_) {}
   };
 
-  // ── Run clustering ─────────────────────────────────────────────────────────
   const handleRun = async () => {
     if (!file && !embJobId) return;
     try {
@@ -355,7 +346,6 @@ export default function CapFlexUI() {
     } catch (err) { setStatus("error"); setStatusMsg(`Error: ${err.message}`); setProgress(0); }
   };
 
-  // ── Reset ─────────────────────────────────────────────────────────────────
   const handleReset = () => {
     setPoints([]); setClustered(false); setPareto([]); setKneeMetrics(null);
     setClusterFilter(null); setStatus("idle"); setStatusMsg("No data loaded");
@@ -367,7 +357,6 @@ export default function CapFlexUI() {
     setInputType("tabular");
   };
 
-  // ── Canvas ────────────────────────────────────────────────────────────────
   const drawCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -467,9 +456,8 @@ export default function CapFlexUI() {
 
   const mediaAccept = inputType === "images" ? "image/*" : ".txt,.csv,.tsv,text/plain";
 
-  const canRunClustering = (isTabularMode || isLoadEmbMode) ? !!file : !!embJobId;
+  const canRunClustering = isTabularMode ? !!file : isLoadEmbMode ? (!!file || !!embJobId) : !!embJobId;
 
-  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <>
       <div className="app">
@@ -514,7 +502,6 @@ export default function CapFlexUI() {
                 ))}
               </div>
             </div>
-
             {isEmbGenMode && (
               <>
                 <div className="section">
@@ -610,18 +597,7 @@ export default function CapFlexUI() {
 
                 {embJobId && (
                   <>
-                    <div className="section">
-                      <div style={{ background: "#E8F0FF", border: `1px solid ${ACCENT}40`, borderRadius: 6, padding: "8px 10px" }}>
-                        <div style={{ fontSize: 9, color: ACCENT, fontFamily: "'Space Mono',monospace", letterSpacing: 1, marginBottom: 4 }}>EMBEDDING JOB LOADED</div>
-                        <div style={{ fontSize: 10, color: MUTED, fontFamily: "'Space Mono',monospace", wordBreak: "break-all" }}>{embJobId.slice(0, 18)}…</div>
-                        <button
-                          onClick={() => { setEmbJobId(null); setStatusMsg("Embedding job cleared"); }}
-                          style={{ marginTop: 6, fontSize: 9, color: MUTED, background: "none", border: "none", cursor: "pointer", fontFamily: "'Space Mono',monospace", textDecoration: "underline", padding: 0 }}
-                        >
-                          Clear
-                        </button>
-                      </div>
-                    </div>
+
                     <div className="section">
                       <div className="section-title">Clustering Parameters</div>
                       <div className="form-group">
@@ -666,9 +642,22 @@ export default function CapFlexUI() {
                 )}
               </>
             )}
-
             {(isTabularMode || isLoadEmbMode) && (
               <>
+                {embJobId ? (
+                  <div className="section">
+                    <div style={{ background: "#E8F0FF", border: `1px solid ${ACCENT}40`, borderRadius: 8, padding: "12px 14px" }}>
+                      <div style={{ fontSize: 9, color: ACCENT, fontFamily: "'Space Mono',monospace", letterSpacing: 1, marginBottom: 4 }}>EMBEDDING JOB LOADED</div>
+                      <div style={{ fontSize: 10, color: MUTED, fontFamily: "'Space Mono',monospace", wordBreak: "break-all", marginBottom: 8 }}>{embJobId.slice(0, 18)}…</div>
+                      <button
+                        onClick={() => { setEmbJobId(null); setPoints([]); setClustered(false); setStatusMsg("Embedding job cleared"); }}
+                        style={{ fontSize: 9, color: MUTED, background: "none", border: "none", cursor: "pointer", fontFamily: "'Space Mono',monospace", textDecoration: "underline", padding: 0 }}
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                ) : (
                 <div className="section">
                   <div className="section-title">Upload CSV</div>
                   <div className={`upload-zone ${fileName ? "has-file" : ""}`}>
@@ -678,6 +667,7 @@ export default function CapFlexUI() {
                     {fileName && <div className="upload-filename">{fileName}</div>}
                   </div>
                 </div>
+                )}
 
                 <div className="section">
                   <div className="section-title">Parameters</div>
@@ -738,7 +728,7 @@ export default function CapFlexUI() {
                     </div>
                   )}
 
-                  {isLoadEmbMode && (
+                  {isLoadEmbMode && !embJobId && (
                     <div className="form-group">
                       <div className="form-label">EMBEDDING PREFIX</div>
                       <input type="text" value={embPrefix} onChange={(e) => setEmbPrefix(e.target.value)} placeholder="emb" />
@@ -1014,7 +1004,7 @@ export default function CapFlexUI() {
                                   <td>
                                     {pt.filename && mediaFiles.length > 0 ? (() => {
                                       const imgFile = mediaFiles.find(f => f.name === pt.filename);
-                                      return imgFile && inputType === "images" ? (
+                                      return imgFile ? (
                                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                           <img src={URL.createObjectURL(imgFile)} alt={pt.filename} style={{ width: 36, height: 36, objectFit: "cover", borderRadius: 4, border: "1px solid var(--border)", flexShrink: 0 }} />
                                           <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--text-2)", wordBreak: "break-all" }}>{pt.filename}</span>
