@@ -116,6 +116,7 @@ export default function CapFlexUI() {
   const [statusMsg, setStatusMsg]     = useState("No data loaded");
   const [progress, setProgress]       = useState(0);
   const [points, setPoints]           = useState([]);
+  const [clusterJobId, setClusterJobId] = useState(null);
   const [clustered, setClustered]     = useState(false);
   const [pareto, setPareto]           = useState([]);
   const [kneeMetrics, setKneeMetrics] = useState(null);
@@ -149,7 +150,7 @@ export default function CapFlexUI() {
     setPoints([]); setClustered(false); setPareto([]); setKneeMetrics(null);
     setClusterFilter(null); setStatus("idle"); setStatusMsg("No data loaded");
     setProgress(0); setFile(null); setFileName(null); setEmbJobId(null);
-    setCsvColumns([]); setExcludedCols([]); setLabelCol("");
+    setCsvColumns([]); setExcludedCols([]); setLabelCol(""); setClusterJobId(null);
     setActiveTab("pca");
   }, [inputType]);
 
@@ -182,6 +183,7 @@ export default function CapFlexUI() {
         features: Object.fromEntries(numericCols.slice(0, 6).map((k) => [k, row[k]])),
       }));
       setPoints(preview);
+      suggestCardinality(preview.length);
     } catch (_) {
       setCsvColumns([]); setPoints([]);
     }
@@ -195,6 +197,7 @@ export default function CapFlexUI() {
     setEmbResultJobId(null);
     setEmbGenMsg(`${files.length} file${files.length > 1 ? "s" : ""} selected — click Generate`);
     setEmbGenProgress(0);
+    suggestCardinality(files.length);
     if (inputType === "text" && files[0]) {
       try {
         const txt = await files[0].text();
@@ -280,6 +283,7 @@ export default function CapFlexUI() {
           features: {},
         }));
         setPoints(preview);
+        suggestCardinality(preview.length);
       }
     } catch (_) {}
   };
@@ -324,6 +328,7 @@ export default function CapFlexUI() {
 
       const submitted = await apiPost(`${CLUSTERING_API}/clustering/run`, form);
       const jobId = submitted.job_id;
+      setClusterJobId(jobId);
       setStatusMsg("Exploring cardinality pool…"); setProgress(30);
       await pollStatus(`${CLUSTERING_API}/clustering/status/${jobId}`, (s) => {
         if (s === "running") { setStatusMsg("Running parallel LP optimization…"); setProgress(65); }
@@ -344,6 +349,18 @@ export default function CapFlexUI() {
       setProgress(100); setStatus("done");
       setStatusMsg(`Optimal solution found — Silhouette: ${results.knee_point.silhouette} · CSVI: ${results.knee_point.CSVI} · Cardinality: ${results.knee_point.cardinality}`);
     } catch (err) { setStatus("error"); setStatusMsg(`Error: ${err.message}`); setProgress(0); }
+  };
+
+  const handleDownloadClustering = () => {
+    if (!clusterJobId) return;
+    window.open(`${CLUSTERING_API}/clustering/download/${clusterJobId}`, "_blank");
+  };
+
+  const suggestCardinality = (n) => {
+    if (!n || n < 2) return;
+    const half = Math.floor(n / 2);
+    const other = n - half;
+    setTargetCard(half === other ? `${half},${half}` : `${half},${other}`);
   };
 
   const handleReset = () => {
@@ -620,24 +637,17 @@ export default function CapFlexUI() {
                       <button className="run-btn" onClick={handleRun} disabled={status === "loading"}>
                         {status === "loading" ? <><span className="shimmer" />Running…</> : "▶ Run CapFlex"}
                       </button>
-                    </div>
-                    {kneeMetrics && (
-                      <div className="section">
-                        <div className="section-title">Knee Point Solution</div>
-                        {[
-                          ["Silhouette", typeof kneeMetrics.silhouette === "number" ? kneeMetrics.silhouette.toFixed(4) : "—"],
-                          ["CSVI",       typeof kneeMetrics.CSVI       === "number" ? kneeMetrics.CSVI.toFixed(4)       : "—"],
-                          ["ILVC",       kneeMetrics.ILVC ?? "—"],
-                          ["CLVC",       kneeMetrics.CLVC ?? "—"],
-                          ["AMI",        kneeMetrics.AMI != null ? (+kneeMetrics.AMI).toFixed(4) : "N/A"],
-                        ].map(([k, v]) => (
-                          <div key={k} className="pareto-metric" style={{ marginBottom: 6 }}>
-                            <span className="k" style={{ fontFamily: "'Space Mono',monospace", fontSize: 10, color: MUTED }}>{k}</span>
-                            <span className="v" style={{ fontFamily: "'Space Mono',monospace", fontSize: 12, color: ACCENT }}>{v}</span>
-                          </div>
-                        ))}
-                      </div>
+                    {clustered && clusterJobId && (
+                      <button
+                        className="run-btn"
+                        onClick={handleDownloadClustering}
+                        style={{ marginTop: 8, background: "var(--surface2)", border: `1.5px solid ${ACCENT}`, color: ACCENT }}
+                      >
+                        Download Results
+                      </button>
                     )}
+                    </div>
+
                   </>
                 )}
               </>
@@ -758,25 +768,18 @@ export default function CapFlexUI() {
                   <button className="run-btn" onClick={handleRun} disabled={!canRunClustering || status === "loading"}>
                     {status === "loading" ? <><span className="shimmer" />Running…</> : "▶ Run CapFlex"}
                   </button>
+                    {clustered && clusterJobId && (
+                      <button
+                        className="run-btn"
+                        onClick={handleDownloadClustering}
+                        style={{ marginTop: 8, background: "var(--surface2)", border: `1.5px solid ${ACCENT}`, color: ACCENT }}
+                      >
+                        Download Results
+                      </button>
+                    )}
                 </div>
 
-                {kneeMetrics && (
-                  <div className="section">
-                    <div className="section-title">Knee Point Solution</div>
-                    {[
-                      ["Silhouette", typeof kneeMetrics.silhouette === "number" ? kneeMetrics.silhouette.toFixed(4) : "—"],
-                      ["CSVI",       typeof kneeMetrics.CSVI       === "number" ? kneeMetrics.CSVI.toFixed(4)       : "—"],
-                      ["ILVC",       kneeMetrics.ILVC ?? "—"],
-                      ["CLVC",       kneeMetrics.CLVC ?? "—"],
-                      ["AMI",        kneeMetrics.AMI != null ? (+kneeMetrics.AMI).toFixed(4) : "N/A"],
-                    ].map(([k, v]) => (
-                      <div key={k} className="pareto-metric" style={{ marginBottom: 6 }}>
-                        <span className="k" style={{ fontFamily: "'Space Mono',monospace", fontSize: 10, color: MUTED }}>{k}</span>
-                        <span className="v" style={{ fontFamily: "'Space Mono',monospace", fontSize: 12, color: ACCENT }}>{v}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+
               </>
             )}
           </aside>
